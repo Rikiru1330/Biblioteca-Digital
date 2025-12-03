@@ -1,0 +1,38 @@
+[
+    {
+        "title": "Cien años de soledad",
+        "author": "Gabriel Garcia Marquez",
+        "isbn": "978-0307474728",
+        "published": 1967,
+        "genre": "Realismo magico",
+        "description": "Una obra maestra de la literatura latinoamericana",
+        "available": true
+    },
+    {
+        "title": "1984",
+        "author": "George Orwell",
+        "isbn": "978-0451524935",
+        "published": 1949,
+        "genre": "Distopía",
+        "description": "Novela sobre vigilancia y control totalitario",
+        "available": true
+    },
+    {
+        "title": "Don Quijote de la Mancha",
+        "author": "Miguel de Cervantes",
+        "isbn": "978-8420412146",
+        "published": 1605,
+        "genre": "Novela",
+        "description": "Aventuras de un hidalgo que enloquece leyendo libros de caballerías",
+        "available": true
+    },
+    {
+        "title": "El Señor de los Anillos",
+        "author": "J.R.R. Tolkien",
+        "isbn": "978-8445000667",
+        "published": 1954,
+        "genre": "Fantasía épica",
+        "description": "La lucha por destruir el Anillo Único",
+        "available": false
+    }
+]

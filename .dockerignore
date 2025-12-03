@@ -1,0 +1,17 @@
+.git
+.gitignore
+*.db
+*.log
+Dockerfile
+docker-compose.yml
+.env
+coverage.out
+__pycache__
+node_modules
+dist
+build
+.DS_Store
+.vscode
+*.test
+*.swp
+*.swo

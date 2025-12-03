@@ -1,0 +1,52 @@
+# Makefile
+.PHONY: run build docker docker-run test clean help
+
+# Variables
+APP_NAME = library-api
+PORT = 8080
+DOCKER_TAG = latest
+
+# Ayuda
+help:
+	@echo "Comandos disponibles:"
+	@echo "  make run       - Ejecutar la aplicación localmente"
+	@echo "  make build     - Compilar binario"
+	@echo "  make docker    - Construir imagen Docker"
+	@echo "  make up        - Ejecutar con Docker Compose"
+	@echo "  make down      - Detener Docker Compose"
+	@echo "  make clean     - Limpiar archivos generados"
+
+# Ejecutar localmente
+run:
+	go run main.go
+
+# Compilar
+build:
+	CGO_ENABLED=0 go build -o $(APP_NAME) main.go
+
+# Construir imagen Docker
+docker:
+	docker build -t $(APP_NAME):$(DOCKER_TAG) .
+
+# Ejecutar con Docker
+docker-run:
+	docker run -p $(PORT):8080 $(APP_NAME):$(DOCKER_TAG)
+
+# Ejecutar con Docker Compose
+up:
+	docker-compose up --build
+
+# Detener Docker Compose
+down:
+	docker-compose down
+
+# Limpiar
+clean:
+	rm -f $(APP_NAME)
+	rm -rf data/*.db
+	docker-compose down
+	docker rmi $(APP_NAME):$(DOCKER_TAG) 2>/dev/null || true
+
+# Ver logs
+logs:
+	docker-compose logs -f

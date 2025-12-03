@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Biblioteca Digital</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: #2d3436;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #dfe6e9;
+            font-size: 1.2em;
+        }
+        
+        .content {
+            display: flex;
+            min-height: 600px;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            padding: 30px;
+            border-right: 1px solid #dee2e6;
+        }
+        
+        .main {
+            flex: 1;
+            padding: 30px;
+        }
+        
+        .auth-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5a67d8;
+        }
+        
+        .book-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s;
+        }
+        
+        .book-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .book-title {
+            color: #2d3436;
+            font-size: 1.4em;
+            margin-bottom: 8px;
+        }
+        
+        .book-author {
+            color: #636e72;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .book-meta {
+            display: flex;
+            justify-content: space-between;
+            color: #74b9ff;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .available {
+            color: #00b894;
+            font-weight: bold;
+        }
+        
+        .unavailable {
+            color: #e17055;
+            font-weight: bold;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #636e72;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #636e72;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Biblioteca Digital</h1>
+            <p class="subtitle">Sistema de gestión de libros y préstamos</p>
+        </header>
+        
+        <div class="content">
+            <div class="sidebar">
+                <div class="auth-section">
+                    <h3>🔐 Autenticación</h3>
+                    <div id="login-form">
+                        <input type="text" id="username" placeholder="Usuario" value="admin">
+                        <input type="password" id="password" placeholder="Contraseña" value="admin123">
+                        <button onclick="login()">Iniciar Sesión</button>
+                        <p style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9em;">
+                            Usa: admin / admin123
+                        </p>
+                    </div>
+                    <div id="user-info" style="display: none;">
+                        <h3>👤 Usuario: <span id="current-user"></span></h3>
+                        <p>Rol: <span id="current-role"></span></p>
+                        <button onclick="logout()" style="background: #e17055;">Cerrar Sesión</button>
+                    </div>
+                </div>
+                
+                <div class="auth-section">
+                    <h3>📖 Acciones</h3>
+                    <button onclick="loadBooks()" style="background: #00b894;">🔄 Actualizar Libros</button>
+                    <button onclick="showAddBookForm()" style="background: #0984e3;">➕ Agregar Libro</button>
+                    <button onclick="loadLoans()" style="background: #a29bfe;">📋 Ver Préstamos</button>
+                </div>
+                
+                <div id="stats" class="stats">
+                    <!-- Las estadísticas se cargarán aquí -->
+                </div>
+            </div>
+            
+            <div class="main">
+                <div id="books-container">
+                    <div class="loading">
+                        <h3>📚 Cargando libros...</h3>
+                        <p>Inicia sesión para ver los libros</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para agregar libro -->
+    <div id="add-book-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 15px; width: 500px; max-width: 90%;">
+            <h2>➕ Agregar Nuevo Libro</h2>
+            <input type="text" id="book-title" placeholder="Título del libro" style="margin: 10px 0;">
+            <input type="text" id="book-author" placeholder="Autor">
+            <input type="text" id="book-isbn" placeholder="ISBN">
+            <input type="number" id="book-year" placeholder="Año de publicación">
+            <input type="text" id="book-genre" placeholder="Género">
+            <textarea id="book-description" placeholder="Descripción" style="width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; min-height: 100px;"></textarea>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="addBook()" style="background: #00b894;">Guardar</button>
+                <button onclick="hideAddBookForm()" style="background: #e17055;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentToken = localStorage.getItem('library_token') || '';
+        let currentUser = JSON.parse(localStorage.getItem('library_user') || 'null');
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            if (currentToken) {
+                showUserInfo();
+                loadBooks();
+                loadStats();
+            }
+        });
+        
+        // Funciones de autenticación
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('http://localhost:8080/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) throw new Error('Error en login');
+                
+                const data = await response.json();
+                currentToken = data.token;
+                currentUser = data.user;
+                
+                // Guardar en localStorage
+                localStorage.setItem('library_token', currentToken);
+                localStorage.setItem('library_user', JSON.stringify(currentUser));
+                
+                showUserInfo();
+                loadBooks();
+                loadStats();
+                
+                alert('✅ Sesión iniciada correctamente');
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        function logout() {
+            currentToken = '';
+            currentUser = null;
+            localStorage.removeItem('library_token');
+            localStorage.removeItem('library_user');
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('books-container').innerHTML = '<div class="loading"><h3>📚 Cargando libros...</h3><p>Inicia sesión para ver los libros</p></div>';
+        }
+        
+        function showUserInfo() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('current-user').textContent = currentUser?.username || 'Usuario';
+            document.getElementById('current-role').textContent = currentUser?.role || 'user';
+        }
+        
+        // Funciones de libros
+        async function loadBooks() {
+            if (!currentToken) {
+                alert('⚠️ Necesitas iniciar sesión');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8080/books', {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                
+                const books = await response.json();
+                displayBooks(books);
+            } catch (error) {
+                console.error('Error cargando libros:', error);
+                document.getElementById('books-container').innerHTML = '<div class="loading"><h3>❌ Error cargando libros</h3></div>';
+            }
+        }
+        
+        function displayBooks(books) {
+            const container = document.getElementById('books-container');
+            
+            if (books.length === 0) {
+                container.innerHTML = '<div class="loading"><h3>📚 No hay libros</h3><p>Agrega el primer libro usando el botón "+"</p></div>';
+                return;
+            }
+            
+            let html = '';
+            books.forEach(book => {
+                html += `
+                    <div class="book-card">
+                        <div class="book-title">${book.title}</div>
+                        <div class="book-author">✍️ ${book.author}</div>
+                        <p>${book.description || 'Sin descripción'}</p>
+                        <div class="book-meta">
+                            <span>📅 ${book.published || 'N/A'}</span>
+                            <span>🏷️ ${book.genre || 'Sin género'}</span>
+                            <span class="${book.available ? 'available' : 'unavailable'}">
+                                ${book.available ? '✅ Disponible' : '❌ Prestado'}
+                            </span>
+                        </div>
+                        ${book.available ? `<button onclick="borrowBook('${book.id}')" style="margin-top: 15px; padding: 8px; font-size: 14px;">📖 Prestar libro</button>` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Funciones de préstamos
+        async function loadLoans() {
+            if (!currentToken) {
+                alert('⚠️ Necesitas iniciar sesión');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8080/loans?status=active', {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                
+                const loans = await response.json();
+                displayLoans(loans);
+            } catch (error) {
+                console.error('Error cargando préstamos:', error);
+            }
+        }
+        
+        function displayLoans(loans) {
+            let html = '<h2>📋 Préstamos Activos</h2>';
+            
+            if (loans.length === 0) {
+                html += '<p>No hay préstamos activos</p>';
+            } else {
+                loans.forEach(loan => {
+                    html += `
+                        <div class="book-card">
+                            <div class="book-title">Préstamo ID: ${loan.id.substring(0, 8)}...</div>
+                            <div class="book-author">👤 ${loan.user}</div>
+                            <p>📅 Fecha: ${new Date(loan.loan_date).toLocaleDateString()}</p>
+                            <button onclick="returnBook('${loan.id}')" style="background: #00b894; margin-top: 10px;">↪️ Devolver libro</button>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '<button onclick="loadBooks()" style="margin-top: 20px;">📚 Volver a libros</button>';
+            document.getElementById('books-container').innerHTML = html;
+        }
+        
+        async function borrowBook(bookId) {
+            const user = prompt("Ingresa tu nombre para el préstamo:", "Usuario");
+            if (!user) return;
+            
+            try {
+                const response = await fetch(`http://localhost:8080/books/${bookId}/borrow`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ book_id: bookId, user })
+                });
+                
+                if (response.ok) {
+                    alert('✅ Libro prestado exitosamente');
+                    loadBooks();
+                } else {
+                    alert('❌ Error prestando libro');
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        async function returnBook(loanId) {
+            try {
+                const response = await fetch(`http://localhost:8080/loans/${loanId}/return`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                
+                if (response.ok) {
+                    alert('✅ Libro devuelto exitosamente');
+                    loadLoans();
+                }
+            } catch (error) {
+                alert('❌ Error devolviendo libro');
+            }
+        }
+        
+        // Funciones de estadísticas
+        async function loadStats() {
+            if (!currentToken) return;
+            
+            try {
+                const response = await fetch('http://localhost:8080/stats', {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                
+                const stats = await response.json();
+                displayStats(stats);
+            } catch (error) {
+                console.error('Error cargando estadísticas:', error);
+            }
+        }
+        
+        function displayStats(stats) {
+            const container = document.getElementById('stats');
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${stats.total_books || 0}</div>
+                    <div class="stat-label">📚 Libros Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.available_books || 0}</div>
+                    <div class="stat-label">✅ Disponibles</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.active_loans || 0}</div>
+                    <div class="stat-label">📖 Prestados</div>
+                </div>
+            `;
+        }
+        
+        // Funciones para agregar libro
+        function showAddBookForm() {
+            document.getElementById('add-book-modal').style.display = 'flex';
+        }
+        
+        function hideAddBookForm() {
+            document.getElementById('add-book-modal').style.display = 'none';
+            // Limpiar formulario
+            ['book-title', 'book-author', 'book-isbn', 'book-year', 'book-genre', 'book-description']
+                .forEach(id => document.getElementById(id).value = '');
+        }
+        
+        async function addBook() {
+            const book = {
+                title: document.getElementById('book-title').value,
+                author: document.getElementById('book-author').value,
+                isbn: document.getElementById('book-isbn').value,
+                published: parseInt(document.getElementById('book-year').value) || 0,
+                genre: document.getElementById('book-genre').value,
+                description: document.getElementById('book-description').value
+            };
+            
+            // Validación básica
+            if (!book.title || !book.author || !book.isbn) {
+                alert('⚠️ Título, autor e ISBN son obligatorios');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8080/books', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(book)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Libro agregado exitosamente');
+                    hideAddBookForm();
+                    loadBooks();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + (error.error || 'Desconocido'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

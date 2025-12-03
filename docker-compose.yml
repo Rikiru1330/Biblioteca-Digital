@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - GIN_MODE=release
+      - STORAGE_TYPE=sqlite
+      - DB_PATH=/data/library.db
+    volumes:
+      - library-data:/data
+    networks:
+      - library-network
+  
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - api
+    networks:
+      - library-network
+
+volumes:
+  library-data:
+
+networks:
+  library-network:
+    driver: bridge
