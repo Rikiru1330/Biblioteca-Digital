@@ -3,8 +3,9 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"time"
 	"library-api/models"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -15,19 +16,31 @@ type SQLiteStore struct {
 }
 
 func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
-	db, err := sqlx.Connect("sqlite3", dbPath)
+	db, err := sqlx.Connect("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to database: %w", err)
 	}
-	
+
 	if err := createTables(db); err != nil {
 		return nil, fmt.Errorf("error creating tables: %w", err)
 	}
-	
+
 	return &SQLiteStore{db: db}, nil
 }
 
 func createTables(db *sqlx.DB) error {
+	// Tabla de usuarios (NUEVA)
+	usersTable := `
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		username TEXT UNIQUE NOT NULL,
+		password TEXT NOT NULL,
+		role TEXT DEFAULT 'user',
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+
 	// Tabla de libros
 	booksTable := `
 	CREATE TABLE IF NOT EXISTS books (
@@ -43,7 +56,7 @@ func createTables(db *sqlx.DB) error {
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 	`
-	
+
 	// Tabla de préstamos
 	loansTable := `
 	CREATE TABLE IF NOT EXISTS loans (
@@ -56,9 +69,10 @@ func createTables(db *sqlx.DB) error {
 		FOREIGN KEY (book_id) REFERENCES books (id) ON DELETE CASCADE
 	);
 	`
-	
+
 	// Crear índices para búsquedas rápidas
 	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);",
 		"CREATE INDEX IF NOT EXISTS idx_books_title ON books(title);",
 		"CREATE INDEX IF NOT EXISTS idx_books_author ON books(author);",
 		"CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre);",
@@ -66,23 +80,127 @@ func createTables(db *sqlx.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_loans_book_id ON loans(book_id);",
 		"CREATE INDEX IF NOT EXISTS idx_loans_returned ON loans(returned);",
 	}
-	
-	if _, err := db.Exec(booksTable); err != nil {
-		return err
-	}
-	
-	if _, err := db.Exec(loansTable); err != nil {
-		return err
-	}
-	
-	for _, index := range indexes {
-		if _, err := db.Exec(index); err != nil {
-			return err
+
+	// Ejecutar creación de tablas
+	tables := []string{usersTable, booksTable, loansTable}
+	for _, table := range tables {
+		if _, err := db.Exec(table); err != nil {
+			return fmt.Errorf("error creating table: %w", err)
 		}
 	}
-	
+
+	// Crear índices
+	for _, index := range indexes {
+		if _, err := db.Exec(index); err != nil {
+			return fmt.Errorf("error creating index: %w", err)
+		}
+	}
+
 	return nil
 }
+
+// ==============================================
+// MÉTODOS PARA USUARIOS (NUEVOS)
+// ==============================================
+
+// CreateUser - Crear un nuevo usuario
+func (s *SQLiteStore) CreateUser(user models.User) (models.User, error) {
+	// Verificar si el usuario ya existe
+	_, err := s.GetUserByUsername(user.Username)
+	if err == nil {
+		return models.User{}, ErrUserAlreadyExists
+	}
+
+	// Generar ID si no tiene
+	if user.ID == "" {
+		user.ID = uuid.New().String()
+	}
+
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+
+	query := `INSERT INTO users (id, username, password, role, created_at, updated_at) 
+	          VALUES (:id, :username, :password, :role, :created_at, :updated_at)`
+
+	_, err = s.db.NamedExec(query, user)
+	if err != nil {
+		return models.User{}, fmt.Errorf("error creating user: %w", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByUsername - Obtener usuario por nombre de usuario
+func (s *SQLiteStore) GetUserByUsername(username string) (models.User, error) {
+	var user models.User
+
+	query := `SELECT * FROM users WHERE username = ? LIMIT 1`
+	err := s.db.Get(&user, query, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.User{}, ErrUserNotFound
+		}
+		return models.User{}, fmt.Errorf("error getting user: %w", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByID - Obtener usuario por ID
+func (s *SQLiteStore) GetUserByID(id string) (models.User, error) {
+	var user models.User
+
+	query := `SELECT * FROM users WHERE id = ? LIMIT 1`
+	err := s.db.Get(&user, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.User{}, ErrUserNotFound
+		}
+		return models.User{}, fmt.Errorf("error getting user: %w", err)
+	}
+
+	return user, nil
+}
+
+// UpdateUser - Actualizar usuario
+func (s *SQLiteStore) UpdateUser(id string, user models.User) (models.User, error) {
+	user.UpdatedAt = time.Now()
+
+	query := `UPDATE users SET 
+		username = :username, 
+		password = :password, 
+		role = :role, 
+		updated_at = :updated_at 
+		WHERE id = :id`
+
+	user.ID = id
+	_, err := s.db.NamedExec(query, user)
+	if err != nil {
+		return models.User{}, fmt.Errorf("error updating user: %w", err)
+	}
+
+	return s.GetUserByID(id)
+}
+
+// DeleteUser - Eliminar usuario
+func (s *SQLiteStore) DeleteUser(id string) error {
+	query := `DELETE FROM users WHERE id = ?`
+	result, err := s.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("error deleting user: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+// ==============================================
+// MÉTODOS PARA LIBROS (EXISTENTES)
+// ==============================================
 
 // CreateBook implementación
 func (s *SQLiteStore) CreateBook(book models.Book) (models.Book, error) {
@@ -90,28 +208,39 @@ func (s *SQLiteStore) CreateBook(book models.Book) (models.Book, error) {
 	book.CreatedAt = time.Now()
 	book.UpdatedAt = time.Now()
 	book.Available = true
-	
+
 	query := `INSERT INTO books (id, title, author, isbn, published, genre, description, available, created_at, updated_at) 
 	          VALUES (:id, :title, :author, :isbn, :published, :genre, :description, :available, :created_at, :updated_at)`
-	
+
 	_, err := s.db.NamedExec(query, book)
 	if err != nil {
 		return models.Book{}, fmt.Errorf("error creating book: %w", err)
 	}
-	
+
 	return book, nil
 }
 
 // GetBooks implementación
 func (s *SQLiteStore) GetBooks() ([]models.Book, error) {
 	var books []models.Book
-	query := `SELECT * FROM books ORDER BY title`
-	
+	query := `SELECT 
+		id, 
+		title, 
+		author, 
+		isbn, 
+		published, 
+		genre, 
+		description, 
+		available, 
+		created_at, 
+		updated_at 
+		FROM books ORDER BY title`
+
 	err := s.db.Select(&books, query)
 	if err != nil {
 		return nil, fmt.Errorf("error getting books: %w", err)
 	}
-	
+
 	return books, nil
 }
 
@@ -119,7 +248,7 @@ func (s *SQLiteStore) GetBooks() ([]models.Book, error) {
 func (s *SQLiteStore) GetBookByID(id string) (models.Book, error) {
 	var book models.Book
 	query := `SELECT * FROM books WHERE id = ?`
-	
+
 	err := s.db.Get(&book, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -127,7 +256,7 @@ func (s *SQLiteStore) GetBookByID(id string) (models.Book, error) {
 		}
 		return models.Book{}, fmt.Errorf("error getting book: %w", err)
 	}
-	
+
 	return book, nil
 }
 
@@ -138,12 +267,12 @@ func (s *SQLiteStore) UpdateBook(id string, updatedBook models.Book) (models.Boo
 	if err != nil {
 		return models.Book{}, err
 	}
-	
+
 	// Mantener valores que no se actualizan
 	updatedBook.ID = id
 	updatedBook.CreatedAt = existingBook.CreatedAt
 	updatedBook.UpdatedAt = time.Now()
-	
+
 	query := `UPDATE books SET 
 		title = :title, 
 		author = :author, 
@@ -154,29 +283,29 @@ func (s *SQLiteStore) UpdateBook(id string, updatedBook models.Book) (models.Boo
 		available = :available,
 		updated_at = :updated_at
 		WHERE id = :id`
-	
+
 	_, err = s.db.NamedExec(query, updatedBook)
 	if err != nil {
 		return models.Book{}, fmt.Errorf("error updating book: %w", err)
 	}
-	
+
 	return updatedBook, nil
 }
 
 // DeleteBook implementación
 func (s *SQLiteStore) DeleteBook(id string) error {
 	query := `DELETE FROM books WHERE id = ?`
-	
+
 	result, err := s.db.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("error deleting book: %w", err)
 	}
-	
+
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		return ErrBookNotFound
 	}
-	
+
 	return nil
 }
 
@@ -185,36 +314,40 @@ func (s *SQLiteStore) SearchBooks(title, author, genre string, available *bool) 
 	var books []models.Book
 	query := `SELECT * FROM books WHERE 1=1`
 	args := []interface{}{}
-	
+
 	if title != "" {
 		query += ` AND title LIKE ?`
 		args = append(args, "%"+title+"%")
 	}
-	
+
 	if author != "" {
 		query += ` AND author LIKE ?`
 		args = append(args, "%"+author+"%")
 	}
-	
+
 	if genre != "" {
 		query += ` AND genre LIKE ?`
 		args = append(args, "%"+genre+"%")
 	}
-	
+
 	if available != nil {
 		query += ` AND available = ?`
 		args = append(args, *available)
 	}
-	
+
 	query += ` ORDER BY title`
-	
+
 	err := s.db.Select(&books, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error searching books: %w", err)
 	}
-	
+
 	return books, nil
 }
+
+// ==============================================
+// MÉTODOS PARA PRÉSTAMOS (EXISTENTES)
+// ==============================================
 
 // CreateLoan implementación
 func (s *SQLiteStore) CreateLoan(loan models.Loan) (models.Loan, error) {
@@ -228,42 +361,51 @@ func (s *SQLiteStore) CreateLoan(loan models.Loan) (models.Loan, error) {
 		}
 		return models.Loan{}, fmt.Errorf("error checking book availability: %w", err)
 	}
-	
+
 	if !available {
 		return models.Loan{}, ErrBookNotAvailable
 	}
-	
+
 	// Crear el préstamo
 	loan.ID = uuid.New().String()
 	loan.LoanDate = time.Now()
 	loan.Returned = false
-	
+
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return models.Loan{}, fmt.Errorf("error starting transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
-	// Insertar préstamo
+
+	// Insertar préstamo - ESPECIFICAR COLUMNAS EXPLÍCITAMENTE
 	loanQuery := `INSERT INTO loans (id, book_id, user, loan_date, returned) 
 	              VALUES (:id, :book_id, :user, :loan_date, :returned)`
-	
-	_, err = tx.NamedExec(loanQuery, loan)
+
+	// Usar un mapa para asegurar el mapeo correcto
+	loanMap := map[string]interface{}{
+		"id":        loan.ID,
+		"book_id":   loan.BookID, // Asegurar que se mapea a book_id
+		"user":      loan.User,
+		"loan_date": loan.LoanDate,
+		"returned":  loan.Returned,
+	}
+
+	_, err = tx.NamedExec(loanQuery, loanMap)
 	if err != nil {
 		return models.Loan{}, fmt.Errorf("error creating loan: %w", err)
 	}
-	
+
 	// Actualizar libro como no disponible
 	updateBookQuery := `UPDATE books SET available = FALSE, updated_at = ? WHERE id = ?`
 	_, err = tx.Exec(updateBookQuery, time.Now(), loan.BookID)
 	if err != nil {
 		return models.Loan{}, fmt.Errorf("error updating book status: %w", err)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		return models.Loan{}, fmt.Errorf("error committing transaction: %w", err)
 	}
-	
+
 	return loan, nil
 }
 
@@ -279,17 +421,17 @@ func (s *SQLiteStore) ReturnBook(loanID string) error {
 		}
 		return fmt.Errorf("error getting loan: %w", err)
 	}
-	
+
 	if loan.Returned {
 		return nil // Ya está devuelto
 	}
-	
+
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	// Actualizar préstamo como devuelto
 	now := time.Now()
 	returnLoanQuery := `UPDATE loans SET returned = TRUE, return_date = ? WHERE id = ?`
@@ -297,18 +439,18 @@ func (s *SQLiteStore) ReturnBook(loanID string) error {
 	if err != nil {
 		return fmt.Errorf("error updating loan: %w", err)
 	}
-	
+
 	// Actualizar libro como disponible
 	updateBookQuery := `UPDATE books SET available = TRUE, updated_at = ? WHERE id = ?`
 	_, err = tx.Exec(updateBookQuery, now, loan.BookID)
 	if err != nil {
 		return fmt.Errorf("error updating book: %w", err)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("error committing transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -316,12 +458,12 @@ func (s *SQLiteStore) ReturnBook(loanID string) error {
 func (s *SQLiteStore) GetLoans() ([]models.Loan, error) {
 	var loans []models.Loan
 	query := `SELECT * FROM loans ORDER BY loan_date DESC`
-	
+
 	err := s.db.Select(&loans, query)
 	if err != nil {
 		return nil, fmt.Errorf("error getting loans: %w", err)
 	}
-	
+
 	return loans, nil
 }
 
@@ -329,12 +471,12 @@ func (s *SQLiteStore) GetLoans() ([]models.Loan, error) {
 func (s *SQLiteStore) GetActiveLoans() ([]models.Loan, error) {
 	var loans []models.Loan
 	query := `SELECT * FROM loans WHERE returned = FALSE ORDER BY loan_date DESC`
-	
+
 	err := s.db.Select(&loans, query)
 	if err != nil {
 		return nil, fmt.Errorf("error getting active loans: %w", err)
 	}
-	
+
 	return loans, nil
 }
 
@@ -342,7 +484,7 @@ func (s *SQLiteStore) GetActiveLoans() ([]models.Loan, error) {
 func (s *SQLiteStore) GetLoanByID(id string) (models.Loan, error) {
 	var loan models.Loan
 	query := `SELECT * FROM loans WHERE id = ?`
-	
+
 	err := s.db.Get(&loan, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -350,6 +492,6 @@ func (s *SQLiteStore) GetLoanByID(id string) (models.Loan, error) {
 		}
 		return models.Loan{}, fmt.Errorf("error getting loan: %w", err)
 	}
-	
+
 	return loan, nil
 }
