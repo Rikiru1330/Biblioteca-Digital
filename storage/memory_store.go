@@ -7,36 +7,49 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type MemoryStore struct {
 	books map[string]models.Book
 	loans map[string]models.Loan
-	users map[string]models.User // NUEVO: mapa de usuarios
+	users map[string]models.User
 	mu    sync.RWMutex
 }
 
 func NewMemoryStore() *MemoryStore {
+	// Hashear la contraseña del admin
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+
 	return &MemoryStore{
+		users: map[string]models.User{
+			"1": {
+				ID:        "1",
+				Username:  "admin",
+				Password:  string(hashedPassword), // ← CONTRASEÑA HASHED
+				Role:      "admin",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
 		books: make(map[string]models.Book),
 		loans: make(map[string]models.Loan),
-		users: make(map[string]models.User), // Inicializar mapa de usuarios
 	}
 }
 
 // ==============================================
-// MÉTODOS PARA USUARIOS (NUEVOS)
+// MÉTODOS PARA USUARIOS (CORREGIDOS PARA DEVOLVER PUNTEROS)
 // ==============================================
 
-// CreateUser - Crear un nuevo usuario
-func (s *MemoryStore) CreateUser(user models.User) (models.User, error) {
+// CreateUser - Crear un nuevo usuario (DEVUELVE PUNTERO)
+func (s *MemoryStore) CreateUser(user models.User) (*models.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Verificar si el usuario ya existe
 	for _, u := range s.users {
 		if u.Username == user.Username {
-			return models.User{}, ErrUserAlreadyExists
+			return nil, ErrUserAlreadyExists
 		}
 	}
 
@@ -49,43 +62,47 @@ func (s *MemoryStore) CreateUser(user models.User) (models.User, error) {
 	user.UpdatedAt = time.Now()
 
 	s.users[user.ID] = user
-	return user, nil
+	return &user, nil // ← CORREGIDO: devolver puntero
 }
 
-// GetUserByUsername - Obtener usuario por nombre de usuario
-func (s *MemoryStore) GetUserByUsername(username string) (models.User, error) {
+// GetUserByUsername - Obtener usuario por nombre de usuario (DEVUELVE PUNTERO)
+func (s *MemoryStore) GetUserByUsername(username string) (*models.User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for _, user := range s.users {
 		if user.Username == username {
-			return user, nil
+			// Crear una copia para devolver puntero a variable local
+			userCopy := user
+			return &userCopy, nil // ← CORREGIDO: devolver puntero
 		}
 	}
 
-	return models.User{}, ErrUserNotFound
+	return nil, ErrUserNotFound
 }
 
-// GetUserByID - Obtener usuario por ID
-func (s *MemoryStore) GetUserByID(id string) (models.User, error) {
+// GetUserByID - Obtener usuario por ID (DEVUELVE PUNTERO)
+func (s *MemoryStore) GetUserByID(id string) (*models.User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	user, exists := s.users[id]
 	if !exists {
-		return models.User{}, ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
-	return user, nil
+
+	userCopy := user
+	return &userCopy, nil // ← CORREGIDO: devolver puntero
 }
 
-// UpdateUser - Actualizar usuario
-func (s *MemoryStore) UpdateUser(id string, updatedUser models.User) (models.User, error) {
+// UpdateUser - Actualizar usuario (DEVUELVE PUNTERO)
+func (s *MemoryStore) UpdateUser(id string, updatedUser models.User) (*models.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	user, exists := s.users[id]
 	if !exists {
-		return models.User{}, ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
 
 	updatedUser.ID = id
@@ -93,7 +110,9 @@ func (s *MemoryStore) UpdateUser(id string, updatedUser models.User) (models.Use
 	updatedUser.UpdatedAt = time.Now()
 
 	s.users[id] = updatedUser
-	return updatedUser, nil
+
+	updatedUserCopy := updatedUser
+	return &updatedUserCopy, nil // ← CORREGIDO: devolver puntero
 }
 
 // DeleteUser - Eliminar usuario
@@ -110,11 +129,11 @@ func (s *MemoryStore) DeleteUser(id string) error {
 }
 
 // ==============================================
-// MÉTODOS PARA LIBROS (EXISTENTES)
+// MÉTODOS PARA LIBROS (CORREGIDOS PARA DEVOLVER PUNTEROS)
 // ==============================================
 
-// CreateBook - Crear un nuevo libro
-func (s *MemoryStore) CreateBook(book models.Book) (models.Book, error) {
+// CreateBook - Crear un nuevo libro (DEVUELVE PUNTERO)
+func (s *MemoryStore) CreateBook(book models.Book) (*models.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -124,7 +143,7 @@ func (s *MemoryStore) CreateBook(book models.Book) (models.Book, error) {
 	book.Available = true
 
 	s.books[book.ID] = book
-	return book, nil
+	return &book, nil // ← CORREGIDO: devolver puntero
 }
 
 // GetBooks - Obtener todos los libros
@@ -139,26 +158,28 @@ func (s *MemoryStore) GetBooks() ([]models.Book, error) {
 	return books, nil
 }
 
-// GetBookByID - Obtener libro por ID
-func (s *MemoryStore) GetBookByID(id string) (models.Book, error) {
+// GetBookByID - Obtener libro por ID (DEVUELVE PUNTERO)
+func (s *MemoryStore) GetBookByID(id string) (*models.Book, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	book, exists := s.books[id]
 	if !exists {
-		return models.Book{}, ErrBookNotFound
+		return nil, ErrBookNotFound
 	}
-	return book, nil
+
+	bookCopy := book
+	return &bookCopy, nil // ← CORREGIDO: devolver puntero
 }
 
-// UpdateBook - Actualizar libro
-func (s *MemoryStore) UpdateBook(id string, updatedBook models.Book) (models.Book, error) {
+// UpdateBook - Actualizar libro (DEVUELVE PUNTERO)
+func (s *MemoryStore) UpdateBook(id string, updatedBook models.Book) (*models.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	book, exists := s.books[id]
 	if !exists {
-		return models.Book{}, ErrBookNotFound
+		return nil, ErrBookNotFound
 	}
 
 	updatedBook.ID = id
@@ -166,7 +187,9 @@ func (s *MemoryStore) UpdateBook(id string, updatedBook models.Book) (models.Boo
 	updatedBook.UpdatedAt = time.Now()
 
 	s.books[id] = updatedBook
-	return updatedBook, nil
+
+	updatedBookCopy := updatedBook
+	return &updatedBookCopy, nil // ← CORREGIDO: devolver puntero
 }
 
 // DeleteBook - Eliminar libro
@@ -207,22 +230,39 @@ func (s *MemoryStore) SearchBooks(title, author, genre string, available *bool) 
 	return results, nil
 }
 
+// UpdateBookAvailability - Actualizar disponibilidad de libro
+func (s *MemoryStore) UpdateBookAvailability(bookID string, available bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	book, exists := s.books[bookID]
+	if !exists {
+		return ErrBookNotFound
+	}
+
+	book.Available = available
+	book.UpdatedAt = time.Now()
+	s.books[bookID] = book
+
+	return nil
+}
+
 // ==============================================
-// MÉTODOS PARA PRÉSTAMOS (EXISTENTES)
+// MÉTODOS PARA PRÉSTAMOS (CORREGIDOS PARA DEVOLVER PUNTEROS)
 // ==============================================
 
-// CreateLoan - Crear préstamo
-func (s *MemoryStore) CreateLoan(loan models.Loan) (models.Loan, error) {
+// CreateLoan - Crear préstamo (DEVUELVE PUNTERO)
+func (s *MemoryStore) CreateLoan(loan models.Loan) (*models.Loan, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Verificar que el libro existe y está disponible
 	book, exists := s.books[loan.BookID]
 	if !exists {
-		return models.Loan{}, ErrBookNotFound
+		return nil, ErrBookNotFound
 	}
 	if !book.Available {
-		return models.Loan{}, ErrBookNotAvailable
+		return nil, ErrBookNotAvailable
 	}
 
 	// Crear el préstamo
@@ -237,7 +277,7 @@ func (s *MemoryStore) CreateLoan(loan models.Loan) (models.Loan, error) {
 	book.UpdatedAt = time.Now()
 	s.books[loan.BookID] = book
 
-	return loan, nil
+	return &loan, nil // ← CORREGIDO: devolver puntero
 }
 
 // ReturnBook - Devolver libro
@@ -296,16 +336,65 @@ func (s *MemoryStore) GetActiveLoans() ([]models.Loan, error) {
 	return activeLoans, nil
 }
 
-// GetLoanByID - Obtener préstamo por ID
-func (s *MemoryStore) GetLoanByID(id string) (models.Loan, error) {
+// GetLoanByID - Obtener préstamo por ID (DEVUELVE PUNTERO)
+func (s *MemoryStore) GetLoanByID(id string) (*models.Loan, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	loan, exists := s.loans[id]
 	if !exists {
-		return models.Loan{}, ErrLoanNotFound
+		return nil, ErrLoanNotFound
 	}
-	return loan, nil
+
+	loanCopy := loan
+	return &loanCopy, nil // ← CORREGIDO: devolver puntero
+}
+
+// GetLoansWithBooks - Obtener préstamos con información de libros
+func (s *MemoryStore) GetLoansWithBooks() ([]models.LoanWithBook, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var loansWithBooks []models.LoanWithBook
+
+	for _, loan := range s.loans {
+		// Buscar el libro correspondiente
+		book, exists := s.books[loan.BookID]
+		if !exists {
+			// Si no encontramos el libro, crear uno vacío
+			book = models.Book{
+				ID:        loan.BookID,
+				Title:     "Libro no encontrado",
+				Available: false,
+			}
+		}
+
+		loanWithBook := models.LoanWithBook{
+			Loan: loan,
+			Book: book,
+		}
+
+		loansWithBooks = append(loansWithBooks, loanWithBook)
+	}
+
+	return loansWithBooks, nil
+}
+
+// GetActiveLoansWithBooks - Obtener préstamos activos con información de libros
+func (s *MemoryStore) GetActiveLoansWithBooks() ([]models.LoanWithBook, error) {
+	allLoans, err := s.GetLoansWithBooks()
+	if err != nil {
+		return nil, err
+	}
+
+	var activeLoans []models.LoanWithBook
+	for _, loan := range allLoans {
+		if !loan.Returned {
+			activeLoans = append(activeLoans, loan)
+		}
+	}
+
+	return activeLoans, nil
 }
 
 // ==============================================

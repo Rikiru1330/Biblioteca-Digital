@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Buscar Externo - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .search-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .source-badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e8f4ff;
+            color: var(--info);
+        }
+        
+        .import-notice {
+            padding: 15px;
+            background: #fff8e1;
+            border-radius: 8px;
+            border-left: 4px solid var(--warning);
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .result-count {
+            color: var(--gray);
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <h1 class="page-title">
+                <i class="fas fa-search"></i> Buscar en APIs Externas
+            </h1>
+            
+            <div class="import-notice">
+                <i class="fas fa-info-circle"></i>
+                <strong>Nota:</strong> Puedes buscar libros en Open Library e importarlos a tu biblioteca. Solo usuarios administradores pueden importar libros.
+            </div>
+            
+            <!-- Barra de búsqueda -->
+            <div class="search-container">
+                <input type="text" 
+                       id="search-query" 
+                       class="search-input" 
+                       placeholder="Buscar libros, autores, temas... (ej: 'harry potter', 'dune', 'stephen king')"
+                       value="">
+                <button class="btn btn-primary search-btn" onclick="searchExternalBooks()">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+            
+            <!-- Opciones de búsqueda -->
+            <div class="search-options">
+                <div class="option-group">
+                    <label for="search-source">Fuente:</label>
+                    <select id="search-source" class="form-control" style="width: auto;">
+                        <option value="openlibrary" selected>Open Library</option>
+                        <option value="google" disabled title="Requiere API Key">Google Books (Próximamente)</option>
+                    </select>
+                </div>
+                
+                <div class="option-group">
+                    <label for="search-limit">Resultados:</label>
+                    <select id="search-limit" class="form-control" style="width: auto;">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                    </select>
+                </div>
+                
+                <span class="source-badge">
+                    <i class="fas fa-database"></i> Open Library (Gratuito)
+                </span>
+            </div>
+            
+            <!-- Resultados -->
+            <div id="search-results-container">
+                <div class="loading">
+                    <i class="fas fa-search"></i>
+                    <h3>Buscar Libros</h3>
+                    <p>Ingresa un término de búsqueda para comenzar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Cargar navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            // Buscar con Enter
+            document.getElementById('search-query').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchExternalBooks();
+                }
+            });
+            
+            // Ejemplo de búsqueda inicial
+            // document.getElementById('search-query').value = 'harry potter';
+        });
+        
+        async function searchExternalBooks() {
+            const query = document.getElementById('search-query').value.trim();
+            const source = document.getElementById('search-source').value;
+            const limit = document.getElementById('search-limit').value;
+            
+            if (!query) {
+                showMessage('Por favor, ingresa un término de búsqueda', 'error');
+                return;
+            }
+            
+            const container = document.getElementById('search-results-container');
+            container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Buscando...</p></div>';
+            
+            try {
+                const response = await apiRequest(`/api/external/search?q=${encodeURIComponent(query)}&source=${source}&limit=${limit}`);
+                
+                if (!response || !response.results) {
+                    throw new Error('No se encontraron resultados');
+                }
+                
+                displaySearchResults(response.results, query, source);
+                
+            } catch (error) {
+                console.error('Error buscando libros:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Error en la búsqueda</h3>
+                        <p>${error.message}</p>
+                        <button class="btn btn-primary" onclick="searchExternalBooks()" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Reintentar
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function displaySearchResults(books, query, source) {
+            const container = document.getElementById('search-results-container');
+            const user = getUserInfo();
+            const isAdmin = user && user.isAdmin;
+            
+            if (!books || books.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <h3>No se encontraron resultados</h3>
+                        <p>No hay libros para "${query}" en ${source === 'openlibrary' ? 'Open Library' : 'Google Books'}</p>
+                        <button class="btn btn-primary" onclick="searchExternalBooks()" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Intentar otra búsqueda
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            const resultCount = `<div class="result-count">
+                <i class="fas fa-search"></i> 
+                Encontrados ${books.length} resultados para "${query}" en ${source === 'openlibrary' ? 'Open Library' : 'Google Books'}
+            </div>`;
+            
+            let html = resultCount + '<div class="books-grid">';
+            
+            books.forEach(book => {
+                const title = book.title || 'Sin título';
+                const author = book.author || 'Autor desconocido';
+                const isbn = book.isbn || 'No disponible';
+                const year = book.published || 'Desconocido';
+                const description = book.description ? 
+                    (book.description.length > 120 ? book.description.substring(0, 120) + '...' : book.description) : 
+                    'Sin descripción disponible.';
+                
+                html += `
+                    <div class="book-card">
+                        <div class="book-title">${title}</div>
+                        <div class="book-author">
+                            <i class="fas fa-user-edit"></i> ${author}
+                        </div>
+                        
+                        <div class="book-description">${description}</div>
+                        
+                        <div class="book-meta">
+                            <span><i class="fas fa-calendar"></i> ${year}</span>
+                            <span><i class="fas fa-barcode"></i> ${isbn.substring(0, 10)}${isbn.length > 10 ? '...' : ''}</span>
+                            <span class="source-badge" style="font-size: 10px; padding: 3px 8px;">
+                                <i class="fas fa-external-link-alt"></i> ${source}
+                            </span>
+                        </div>
+                        
+                        <div class="book-actions">
+                            <button class="btn btn-primary btn-small" onclick="viewBookDetails('${book.id}', '${source}')">
+                                <i class="fas fa-info-circle"></i> Detalles
+                            </button>
+                            
+                            ${isAdmin ? 
+                                `<button class="btn btn-success btn-small" onclick="importExternalBook('${book.id}', '${title.replace(/'/g, "\\'")}', '${source}')">
+                                    <i class="fas fa-download"></i> Importar
+                                </button>` : 
+                                `<button class="btn btn-success btn-small" disabled title="Solo administradores pueden importar">
+                                    <i class="fas fa-download"></i> Importar
+                                </button>`
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+        
+        async function viewBookDetails(bookId, source) {
+            try {
+                const response = await apiRequest(`/api/books/${bookId}/details?source=${source}`);
+                
+                if (!response) {
+                    throw new Error('No se pudieron cargar los detalles');
+                }
+                
+                // Mostrar detalles en un modal o alert
+                const book = response.book || response;
+                let details = `
+                    <strong>${book.title || 'Sin título'}</strong><br>
+                    <em>${book.author || 'Autor desconocido'}</em><br><br>
+                `;
+                
+                if (book.description) {
+                    details += `<p>${book.description}</p><br>`;
+                }
+                
+                details += `
+                    <strong>ISBN:</strong> ${book.isbn || 'No disponible'}<br>
+                    <strong>Año:</strong> ${book.published || 'Desconocido'}<br>
+                    <strong>Género:</strong> ${book.genre || 'No especificado'}
+                `;
+                
+                alert(details);
+                
+            } catch (error) {
+                showMessage('Error cargando detalles: ' + error.message, 'error');
+            }
+        }
+        
+        async function importExternalBook(bookId, bookTitle, source) {
+            const user = getUserInfo();
+            if (!user || user.role !== 'admin') {
+                showMessage('Solo los administradores pueden importar libros', 'error');
+                return;
+            }
+            
+            if (!confirm(`¿Importar "${bookTitle}" a tu biblioteca?`)) {
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`/api/external/import?source=${source}&id=${encodeURIComponent(bookId)}`);
+                
+                if (!response) {
+                    throw new Error('Error importando libro');
+                }
+                
+                showMessage(response.message || `Libro "${bookTitle}" importado exitosamente`, 'success');
+                
+                // Opcional: Redirigir al libro importado
+                // if (response.book && response.book.id) {
+                //     setTimeout(() => {
+                //         window.location.href = `book-detail.html?id=${response.book.id}`;
+                //     }, 1500);
+                // }
+                
+            } catch (error) {
+                showMessage('Error importando libro: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

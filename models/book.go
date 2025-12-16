@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Book struct {
 	ID          string    `json:"id" db:"id"`
@@ -17,7 +19,7 @@ type Book struct {
 
 type Loan struct {
 	ID         string     `json:"id" db:"id"`
-	BookID     string     `json:"book_id" binding:"required" db:"book_id"` // ¡IMPORTANTE: db:"book_id"!
+	BookID     string     `json:"book_id" binding:"required" db:"book_id"`
 	User       string     `json:"user" binding:"required" db:"user"`
 	LoanDate   time.Time  `json:"loan_date" db:"loan_date"`
 	ReturnDate *time.Time `json:"return_date,omitempty" db:"return_date"`
@@ -46,6 +48,11 @@ type UpdateBookRequest struct {
 type LoanRequest struct {
 	BookID string `json:"book_id" binding:"required"`
 	User   string `json:"user" binding:"required"`
+}
+
+type LoanWithBook struct {
+	Loan
+	Book Book `json:"book"`
 }
 
 // NOTA: Eliminamos la importación de uuid de aquí

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Dashboard - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <h1 class="page-title">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </h1>
+            
+            <!-- Estadísticas -->
+            <div class="stats-grid" id="stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-books">0</h3>
+                        <p>Libros Totales</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, var(--success), #00cec9);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="available-books">0</h3>
+                        <p>Disponibles</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, var(--info), #74b9ff);">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="active-loans">0</h3>
+                        <p>Préstamos Activos</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, var(--warning), #fdcb6e);">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>1</h3>
+                        <p>Usuarios</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Acciones rápidas -->
+            <div style="margin: 40px 0;">
+                <h2 style="margin-bottom: 20px; color: var(--dark);">
+                    <i class="fas fa-bolt"></i> Acciones Rápidas
+                </h2>
+                
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <a href="books.html" class="btn btn-primary">
+                        <i class="fas fa-book"></i> Ver Todos los Libros
+                    </a>
+                    <a href="loans.html" class="btn btn-info">
+                        <i class="fas fa-exchange-alt"></i> Gestionar Préstamos
+                    </a>
+                    <a href="external-search.html" class="btn btn-success">
+                        <i class="fas fa-search"></i> Buscar en Open Library
+                    </a>
+                    
+                    <span id="admin-actions" style="display: none;">
+                        <a href="add-book.html" class="btn btn-warning">
+                            <i class="fas fa-plus-circle"></i> Agregar Libro
+                        </a>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Libros recientes -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="color: var(--dark);">
+                        <i class="fas fa-clock"></i> Libros Recientes &nbsp;
+                    </h2>
+                    <a href="books.html" class="btn btn-primary btn-small">
+                        Ver Todos <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div id="recent-books" class="books-grid">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Cargando libros...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/books.js"></script>
+    
+    <script>
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Cargar navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            // Mostrar acciones de admin si es admin
+            const user = getUserInfo();
+            if (user && user.isAdmin) {
+                document.getElementById('admin-actions').style.display = 'inline-block';
+            }
+            
+            // Cargar datos
+            loadDashboardData();
+            loadRecentBooks();
+        });
+        
+        async function loadDashboardData() {
+            try {
+                // Cargar libros
+                const books = await apiRequest('/books');
+                if (books && Array.isArray(books)) {
+                    const totalBooks = books.length;
+                    const availableBooks = books.filter(b => b.available !== false).length;
+                    
+                    document.getElementById('total-books').textContent = totalBooks;
+                    document.getElementById('available-books').textContent = availableBooks;
+                }
+                
+                // Cargar préstamos activos
+                const loans = await apiRequest('/loans?status=active');
+                if (loans && Array.isArray(loans)) {
+                    document.getElementById('active-loans').textContent = loans.length;
+                }
+                
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+            }
+        }
+        
+        async function loadRecentBooks() {
+            const container = document.getElementById('recent-books');
+            
+            try {
+                const books = await apiRequest('/books');
+                if (!books || !Array.isArray(books)) {
+                    throw new Error('No se pudieron cargar los libros');
+                }
+                
+                const recentBooks = books.slice(0, 4); // Primeros 4
+                
+                if (recentBooks.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <i class="fas fa-book"></i>
+                            <h3>No hay libros</h3>
+                            <p>Agrega el primer libro</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                recentBooks.forEach(book => {
+                    const title = book.title || 'Sin título';
+                    const author = book.author || 'Autor desconocido';
+                    const description = book.description || 'Sin descripción disponible.';
+                    const available = book.available !== false;
+                    
+                    html += `
+                        <div class="book-card">
+                            <div class="book-status ${available ? 'status-available' : 'status-borrowed'}">
+                                ${available ? 'Disponible' : 'Prestado'}
+                            </div>
+                            
+                            <div class="book-title">${title}</div>
+                            <div class="book-author">
+                                <i class="fas fa-user-edit"></i> ${author}
+                            </div>
+                            
+                            <div class="book-description">
+                                ${description.length > 100 ? description.substring(0, 100) + '...' : description}
+                            </div>
+                            
+                            <div class="book-meta">
+                                <span><i class="fas fa-calendar"></i> ${book.published || 'N/A'}</span>
+                                <span><i class="fas fa-tag"></i> ${book.genre || 'General'}</span>
+                            </div>
+                            
+                            <div class="book-actions">
+                                <a href="book-detail.html?id=${book.id}" class="btn btn-primary btn-small">
+                                    <i class="fas fa-eye"></i> Ver Detalles
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error cargando libros recientes:', error);
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Error cargando libros</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

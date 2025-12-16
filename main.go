@@ -158,6 +158,7 @@ func setupRoutes(router *gin.Engine, bookHandler *handlers.BookHandler, authHand
 	// Autenticación
 	router.POST("/register", authHandler.Register)
 	router.POST("/login", authHandler.Login)
+	router.POST("/api/register", authHandler.Register)
 
 	// Salud del sistema
 	router.GET("/health", bookHandler.HealthCheck)

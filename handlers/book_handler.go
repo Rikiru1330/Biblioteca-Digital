@@ -62,7 +62,7 @@ func (h *BookHandler) CreateBook(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, createdBook)
+	c.JSON(http.StatusCreated, *createdBook) // ← DESREFERENCIADO
 }
 
 // GetBooks - Obtener todos los libros
@@ -90,7 +90,7 @@ func (h *BookHandler) GetBook(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, book)
+	c.JSON(http.StatusOK, *book) // ← DESREFERENCIADO
 }
 
 // UpdateBook - Actualizar un libro
@@ -103,7 +103,7 @@ func (h *BookHandler) UpdateBook(c *gin.Context) {
 		return
 	}
 
-	existingBook, err := h.store.GetBookByID(id)
+	existingBookPtr, err := h.store.GetBookByID(id)
 	if err != nil {
 		if err == storage.ErrBookNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
@@ -112,6 +112,9 @@ func (h *BookHandler) UpdateBook(c *gin.Context) {
 		}
 		return
 	}
+
+	// Crear copia para modificar
+	existingBook := *existingBookPtr
 
 	if req.Title != "" {
 		existingBook.Title = req.Title
@@ -145,7 +148,7 @@ func (h *BookHandler) UpdateBook(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedBook)
+	c.JSON(http.StatusOK, *updatedBook) // ← DESREFERENCIADO
 }
 
 // DeleteBook - Eliminar un libro
@@ -190,13 +193,19 @@ func (h *BookHandler) SearchBooks(c *gin.Context) {
 
 // BorrowBook - Prestar un libro
 func (h *BookHandler) BorrowBook(c *gin.Context) {
-	var req models.LoanRequest
+	// SOLUCIÓN: Usar estructura local para evitar problemas de import
+	type LocalLoanRequest struct {
+		BookID string `json:"book_id" binding:"required"`
+		User   string `json:"user" binding:"required"`
+	}
 
+	var req LocalLoanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Crear loan usando models.Loan (que SÍ existe)
 	loan := models.Loan{
 		BookID: req.BookID,
 		User:   req.User,
@@ -214,7 +223,7 @@ func (h *BookHandler) BorrowBook(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, createdLoan)
+	c.JSON(http.StatusCreated, *createdLoan) // ← DESREFERENCIADO
 }
 
 // ReturnBook - Devolver un libro
@@ -233,24 +242,88 @@ func (h *BookHandler) ReturnBook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Book returned successfully"})
 }
 
-// GetLoans - Obtener todos los préstamos
+// GetLoans - Obtener todos los préstamos CON información de libros
 func (h *BookHandler) GetLoans(c *gin.Context) {
 	status := c.Query("status")
-	var loans []models.Loan
+	var loans []models.LoanWithBook
 	var err error
 
-	if strings.ToLower(status) == "active" {
-		loans, err = h.store.GetActiveLoans()
+	// DEBUG
+	fmt.Printf("GetLoans called with status: %s\n", status)
+
+	// Verificar si el store tiene el nuevo método
+	if storeWithBooks, ok := h.store.(interface {
+		GetLoansWithBooks() ([]models.LoanWithBook, error)
+		GetActiveLoansWithBooks() ([]models.LoanWithBook, error)
+	}); ok {
+		// Usar métodos nuevos que incluyen libros
+		if strings.ToLower(status) == "active" {
+			loans, err = storeWithBooks.GetActiveLoansWithBooks()
+		} else {
+			loans, err = storeWithBooks.GetLoansWithBooks()
+		}
+
+		if err != nil {
+			// Si hay error, usar fallback
+			fmt.Printf("Error con GetLoansWithBooks: %v, usando fallback\n", err)
+			loans, err = h.getLoansFallback(status)
+		}
 	} else {
-		loans, err = h.store.GetLoans()
+		// Fallback a métodos viejos
+		loans, err = h.getLoansFallback(status)
 	}
 
 	if err != nil {
+		fmt.Printf("Error final en GetLoans: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting loans: " + err.Error()})
 		return
 	}
 
+	// Asegurar que no sea nil
+	if loans == nil {
+		loans = []models.LoanWithBook{}
+	}
+
+	fmt.Printf("Returning %d loans\n", len(loans))
 	c.JSON(http.StatusOK, loans)
+}
+
+// Método de fallback
+func (h *BookHandler) getLoansFallback(status string) ([]models.LoanWithBook, error) {
+	var oldLoans []models.Loan
+	var err error
+
+	if strings.ToLower(status) == "active" {
+		oldLoans, err = h.store.GetActiveLoans()
+	} else {
+		oldLoans, err = h.store.GetLoans()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convertir a LoanWithBook
+	var loans []models.LoanWithBook
+	for _, loan := range oldLoans {
+		bookPtr, _ := h.store.GetBookByID(loan.BookID)
+		var book models.Book
+		if bookPtr != nil {
+			book = *bookPtr
+		} else {
+			book = models.Book{
+				ID:    loan.BookID,
+				Title: "Libro no encontrado",
+			}
+		}
+
+		loans = append(loans, models.LoanWithBook{
+			Loan: loan,
+			Book: book,
+		})
+	}
+
+	return loans, nil
 }
 
 // HealthCheck - Verificar estado del API
@@ -365,7 +438,7 @@ func (h *BookHandler) ImportBookFromExternal(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Book imported successfully",
-		"book":    createdBook,
+		"book":    *createdBook, // ← DESREFERENCIADO
 		"source":  source,
 	})
 }
@@ -439,7 +512,7 @@ func (h *BookHandler) BulkImportBooks(c *gin.Context) {
 			if err != nil {
 				failed = append(failed, fmt.Sprintf("%s: %v", book.Title, err))
 			} else {
-				imported = append(imported, createdBook)
+				imported = append(imported, *createdBook) // ← DESREFERENCIADO
 			}
 		}
 	}
@@ -458,41 +531,48 @@ func (h *BookHandler) GetBookDetails(c *gin.Context) {
 	id := c.Param("id")
 
 	// Primero buscar en nuestra base de datos
-	book, err := h.store.GetBookByID(id)
+	bookPtr, err := h.store.GetBookByID(id)
 	if err != nil {
 		// Si no está en nuestra base, buscar en APIs externas
 		source := c.Query("source")
 		if source != "" {
 			switch source {
 			case "google":
-				book, err = h.externalService.GetGoogleBook(id)
+				book, err := h.externalService.GetGoogleBook(id)
+				if err != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Book not found in any source"})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"source":     source,
+					"in_local":   false,
+					"book":       book,
+					"can_import": true,
+				})
+				return
 			case "openlibrary":
 				books, searchErr := h.externalService.SearchOpenLibrary(id, 1)
 				if searchErr == nil && len(books) > 0 {
-					book = books[0]
-					err = nil
-				} else {
-					err = fmt.Errorf("book not found")
+					c.JSON(http.StatusOK, gin.H{
+						"source":     source,
+						"in_local":   false,
+						"book":       books[0],
+						"can_import": true,
+					})
+					return
 				}
 			}
 
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Book not found in any source"})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"source":     source,
-				"in_local":   false,
-				"book":       book,
-				"can_import": true,
-			})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Book not found in any source"})
 			return
 		}
 
 		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
 		return
 	}
+
+	// Desreferenciar para trabajar con el valor
+	book := *bookPtr
 
 	// Si está en nuestra base, buscar información adicional en APIs externas
 	enrichSource := c.Query("enrich")

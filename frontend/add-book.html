@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>➕ Agregar Libro - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .form-card {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .form-section {
+            background: white;
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            color: var(--dark);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <div style="margin-bottom: 20px;">
+                <a href="books.html" class="back-link">
+                    <i class="fas fa-arrow-left"></i> Volver a Libros
+                </a>
+            </div>
+            
+            <h1 class="page-title">
+                <i class="fas fa-plus-circle"></i> Agregar Nuevo Libro
+            </h1>
+            
+            <div id="admin-check">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Verificando permisos...</p>
+                </div>
+            </div>
+            
+            <div id="add-book-form" style="display: none;">
+                <div class="form-card">
+                    <div class="form-section">
+                        <div class="section-title">
+                            <i class="fas fa-info-circle"></i> Información Básica
+                        </div>
+                        
+                        <form id="book-form" onsubmit="return false;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="book-title">
+                                        <i class="fas fa-heading"></i> Título *
+                                    </label>
+                                    <input type="text" 
+                                           id="book-title" 
+                                           class="form-control" 
+                                           placeholder="Título del libro"
+                                           required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="book-author">
+                                        <i class="fas fa-user-edit"></i> Autor *
+                                    </label>
+                                    <input type="text" 
+                                           id="book-author" 
+                                           class="form-control" 
+                                           placeholder="Nombre del autor"
+                                           required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="book-isbn">
+                                        <i class="fas fa-barcode"></i> ISBN *
+                                    </label>
+                                    <input type="text" 
+                                           id="book-isbn" 
+                                           class="form-control" 
+                                           placeholder="ISBN (10 o 13 dígitos)"
+                                           required>
+                                    <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">
+                                        Formato: 978-3-16-148410-0 o 316148410X
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="book-published">
+                                        <i class="fas fa-calendar"></i> Año de Publicación
+                                    </label>
+                                    <input type="number" 
+                                           id="book-published" 
+                                           class="form-control" 
+                                           placeholder="Ej: 2024"
+                                           min="1000" 
+                                           max="2099">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="book-genre">
+                                        <i class="fas fa-tag"></i> Género
+                                    </label>
+                                    <input type="text" 
+                                           id="book-genre" 
+                                           class="form-control" 
+                                           placeholder="Ej: Novela, Ciencia Ficción, Historia">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="book-available">
+                                        <i class="fas fa-check-circle"></i> Disponibilidad
+                                    </label>
+                                    <select id="book-available" class="form-control">
+                                        <option value="true" selected>Disponible</option>
+                                        <option value="false">No Disponible</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="book-description">
+                                    <i class="fas fa-align-left"></i> Descripción
+                                </label>
+                                <textarea id="book-description" 
+                                          class="form-control" 
+                                          placeholder="Descripción del libro, sinopsis, etc."
+                                          rows="4"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" 
+                                class="btn btn-success" 
+                                style="flex: 1; padding: 15px;"
+                                onclick="addBook()">
+                            <i class="fas fa-save"></i> Guardar Libro
+                        </button>
+                        
+                        <button type="button" 
+                                class="btn btn-danger" 
+                                style="flex: 1; padding: 15px;"
+                                onclick="cancelAdd()">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Verificar si es admin
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            const user = getUserInfo();
+            const adminCheck = document.getElementById('admin-check');
+            
+            if (!user || user.role !== 'admin') {
+                adminCheck.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-ban" style="color: var(--danger);"></i>
+                        <h3>Acceso Denegado</h3>
+                        <p>Solo los administradores pueden agregar libros</p>
+                        <a href="books.html" class="btn btn-primary" style="margin-top: 20px;">
+                            <i class="fas fa-book"></i> Ver Libros
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Es admin, mostrar formulario
+            adminCheck.style.display = 'none';
+            document.getElementById('add-book-form').style.display = 'block';
+        });
+        
+        async function addBook() {
+            const title = document.getElementById('book-title').value.trim();
+            const author = document.getElementById('book-author').value.trim();
+            const isbn = document.getElementById('book-isbn').value.trim();
+            const published = document.getElementById('book-published').value;
+            const genre = document.getElementById('book-genre').value.trim();
+            const description = document.getElementById('book-description').value.trim();
+            const available = document.getElementById('book-available').value === 'true';
+            
+            // Validaciones
+            if (!title || !author || !isbn) {
+                showMessage('Título, autor e ISBN son campos obligatorios', 'error');
+                return;
+            }
+            
+            if (isbn.length < 10) {
+                showMessage('ISBN debe tener al menos 10 caracteres', 'error');
+                return;
+            }
+            
+            const bookData = {
+                title,
+                author,
+                isbn,
+                published: published ? parseInt(published) : 0,
+                genre,
+                description,
+                available
+            };
+            
+            const button = document.querySelector('button[onclick="addBook()"]');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            button.disabled = true;
+            
+            try {
+                const response = await apiRequest('/books', {
+                    method: 'POST',
+                    body: JSON.stringify(bookData)
+                });
+                
+                if (!response || response.error) {
+                    throw new Error(response?.error || 'Error guardando libro');
+                }
+                
+                showMessage(`Libro "${title}" agregado exitosamente`, 'success');
+                
+                // Limpiar formulario
+                document.getElementById('book-form').reset();
+                
+                // Redirigir después de un momento
+                setTimeout(() => {
+                    window.location.href = `book-detail.html?id=${response.id}`;
+                }, 1500);
+                
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        function cancelAdd() {
+            if (confirm('¿Estás seguro de cancelar? Los datos no guardados se perderán.')) {
+                window.location.href = 'books.html';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Libros - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <h1 class="page-title">
+                    <i class="fas fa-book"></i> Todos los Libros
+                </h1>
+                
+                <div>
+                    <button class="btn btn-primary" onclick="loadBooks()">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                    <span id="admin-add-book" style="display: none;">
+                        <a href="add-book.html" class="btn btn-success" style="margin-left: 10px;">
+                            <i class="fas fa-plus"></i> Agregar Libro
+                        </a>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Barra de búsqueda -->
+            <div class="search-container">
+                <input type="text" 
+                       id="search-input" 
+                       class="search-input" 
+                       placeholder="Buscar por título, autor, género...">
+                <button class="btn btn-primary search-btn" onclick="searchBooks()">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+                <button class="btn btn-info" onclick="clearSearch()">
+                    <i class="fas fa-times"></i> Limpiar
+                </button>
+            </div>
+            
+            <!-- Filtros -->
+            <div style="margin-bottom: 25px; display: flex; gap: 15px; align-items: center;">
+                <label style="font-weight: 500; color: var(--dark);">Filtrar por:</label>
+                <select id="filter-available" class="form-control" style="width: auto;" onchange="filterBooks()">
+                    <option value="">Todos los estados</option>
+                    <option value="true">Disponibles</option>
+                    <option value="false">Prestados</option>
+                </select>
+                <select id="filter-sort" class="form-control" style="width: auto;" onchange="filterBooks()">
+                    <option value="title">Ordenar por título</option>
+                    <option value="author">Ordenar por autor</option>
+                    <option value="published">Ordenar por año</option>
+                </select>
+            </div>
+            
+            <!-- Lista de libros -->
+            <div id="books-container">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Cargando libros...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/books.js"></script>
+    
+    <script>
+        // Variables
+        let allBooks = [];
+        let currentFilter = '';
+        let currentSort = 'title';
+        
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Cargar navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            // Mostrar botón de agregar si es admin
+            const user = getUserInfo();
+            if (user && user.isAdmin) {
+                document.getElementById('admin-add-book').style.display = 'inline-block';
+            }
+            
+            // Cargar libros
+            loadBooks();
+            
+            // Buscar con Enter
+            document.getElementById('search-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchBooks();
+                }
+            });
+        });
+        
+        async function loadBooks() {
+            const container = document.getElementById('books-container');
+            container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Cargando libros...</p></div>';
+            
+            try {
+                const books = await apiRequest('/books');
+                if (!books || !Array.isArray(books)) {
+                    throw new Error('No se pudieron cargar los libros');
+                }
+                
+                allBooks = books;
+                displayBooks(books);
+                showMessage(`Cargados ${books.length} libros`, 'success');
+                
+            } catch (error) {
+                console.error('Error cargando libros:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Error cargando libros</h3>
+                        <p>${error.message}</p>
+                        <button class="btn btn-primary" onclick="loadBooks()" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Reintentar
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayBooks(books) {
+            const container = document.getElementById('books-container');
+            
+            if (!books || books.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-book"></i>
+                        <h3>No hay libros</h3>
+                        <p>No se encontraron libros con los criterios actuales</p>
+                        <button class="btn btn-success" onclick="clearSearch()" style="margin-top: 20px;">
+                            <i class="fas fa-eye"></i> Ver Todos
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ordenar libros
+            const sortedBooks = [...books].sort((a, b) => {
+                if (currentSort === 'title') {
+                    return (a.title || '').localeCompare(b.title || '');
+                } else if (currentSort === 'author') {
+                    return (a.author || '').localeCompare(b.author || '');
+                } else if (currentSort === 'published') {
+                    return (b.published || 0) - (a.published || 0);
+                }
+                return 0;
+            });
+            
+            let html = '<div class="books-grid">';
+            
+            sortedBooks.forEach(book => {
+                const title = book.title || 'Sin título';
+                const author = book.author || 'Autor desconocido';
+                const isbn = book.isbn || 'Sin ISBN';
+                const published = book.published || 'N/A';
+                const genre = book.genre || 'Sin género';
+                const description = book.description || 'Sin descripción disponible.';
+                const available = book.available !== false;
+                
+                html += `
+                    <div class="book-card">
+                        <div class="book-status ${available ? 'status-available' : 'status-borrowed'}">
+                            ${available ? 'Disponible' : 'Prestado'}
+                        </div>
+                        
+                        <div class="book-title">${title}</div>
+                        <div class="book-author">
+                            <i class="fas fa-user-edit"></i> ${author}
+                        </div>
+                        
+                        <div class="book-description">
+                            ${description.length > 120 ? description.substring(0, 120) + '...' : description}
+                        </div>
+                        
+                        <div class="book-meta">
+                            <span><i class="fas fa-calendar"></i> ${published}</span>
+                            <span><i class="fas fa-tag"></i> ${genre}</span>
+                            <span><i class="fas fa-barcode"></i> ${isbn.substring(0, 10)}${isbn.length > 10 ? '...' : ''}</span>
+                        </div>
+                        
+                        <div class="book-actions">
+                            <a href="book-detail.html?id=${book.id}" class="btn btn-primary btn-small">
+                                <i class="fas fa-eye"></i> Ver Detalles
+                            </a>
+                            
+                            ${available ? 
+                                `<button class="btn btn-success btn-small" onclick="borrowBook('${book.id}', '${title.replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-book-reader"></i> Prestar
+                                </button>` : 
+                                `<a href="loans.html" class="btn btn-info btn-small">
+                                    <i class="fas fa-exchange-alt"></i> Ver Préstamo
+                                </a>`
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Agregar contador
+            const counter = `<div style="margin-top: 20px; color: var(--gray); font-size: 14px;">
+                Mostrando ${sortedBooks.length} de ${allBooks.length} libros
+            </div>`;
+            
+            container.innerHTML = html + counter;
+        }
+        
+        function searchBooks() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                loadBooks();
+                return;
+            }
+            
+            const filteredBooks = allBooks.filter(book => {
+                const title = (book.title || '').toLowerCase();
+                const author = (book.author || '').toLowerCase();
+                const genre = (book.genre || '').toLowerCase();
+                const description = (book.description || '').toLowerCase();
+                
+                return title.includes(searchTerm) || 
+                       author.includes(searchTerm) || 
+                       genre.includes(searchTerm) ||
+                       description.includes(searchTerm);
+            });
+            
+            displayBooks(filteredBooks);
+            showMessage(`Encontrados ${filteredBooks.length} libros para "${searchTerm}"`, 'info');
+        }
+        
+        function filterBooks() {
+            const availableFilter = document.getElementById('filter-available').value;
+            currentSort = document.getElementById('filter-sort').value;
+            
+            let filteredBooks = [...allBooks];
+            
+            // Filtrar por disponibilidad
+            if (availableFilter !== '') {
+                const available = availableFilter === 'true';
+                filteredBooks = filteredBooks.filter(book => {
+                    const isAvailable = book.available !== false;
+                    return available ? isAvailable : !isAvailable;
+                });
+            }
+            
+            displayBooks(filteredBooks);
+        }
+        
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-available').value = '';
+            document.getElementById('filter-sort').value = 'title';
+            loadBooks();
+        }
+        
+        async function borrowBook(bookId, bookTitle) {
+            const user = getUserInfo();
+            if (!user) {
+                showMessage('Debes iniciar sesión', 'error');
+                return;
+            }
+            
+            const borrower = prompt(`¿Quién presta el libro "${bookTitle}"?`, user.name);
+            if (!borrower) return;
+            
+            try {
+                const response = await apiRequest(`/books/${bookId}/borrow`, {
+                    method: 'POST',
+                    body: JSON.stringify({ book_id: bookId, user: borrower })
+                });
+                
+                if (!response) {
+                    throw new Error('Error en la solicitud');
+                }
+                
+                showMessage(`Libro "${bookTitle}" prestado a ${borrower}`, 'success');
+                
+                // Recargar después de un momento
+                setTimeout(() => {
+                    loadBooks();
+                }, 1000);
+                
+            } catch (error) {
+                showMessage(error.message || 'Error prestando libro', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📋 Préstamos - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+        
+        .tab {
+            padding: 12px 25px;
+            background: none;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray);
+            transition: var(--transition);
+            position: relative;
+        }
+        
+        .tab.active {
+            color: var(--primary);
+        }
+        
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -7px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .loan-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--info);
+            transition: var(--transition);
+        }
+        
+        .loan-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .loan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .loan-id {
+            font-size: 12px;
+            color: var(--gray);
+            font-family: monospace;
+        }
+        
+        .loan-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background: rgba(116, 185, 255, 0.1);
+            color: var(--info);
+        }
+        
+        .status-returned {
+            background: rgba(0, 184, 148, 0.1);
+            color: var(--success);
+        }
+        
+        .loan-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .detail-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .detail-label {
+            font-size: 11px;
+            color: var(--gray);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .detail-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .no-loans {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1 class="page-title">
+                    <i class="fas fa-exchange-alt"></i> Gestión de Préstamos
+                </h1>
+                
+                <button class="btn btn-primary" onclick="loadLoans()">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('active')">Préstamos Activos</button>
+                <button class="tab" onclick="showTab('all')">Todos los Préstamos</button>
+                <button class="tab" onclick="showTab('history')">Historial</button>
+            </div>
+            
+            <!-- Pestaña: Préstamos Activos -->
+            <div id="active-tab" class="tab-content active">
+                <div id="active-loans">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Cargando préstamos activos...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pestaña: Todos los Préstamos -->
+            <div id="all-tab" class="tab-content">
+                <div id="all-loans">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Cargando todos los préstamos...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pestaña: Historial -->
+            <div id="history-tab" class="tab-content">
+                <div id="history-loans">
+                    <div class="no-loans">
+                        <i class="fas fa-history" style="font-size: 48px; margin-bottom: 15px; color: #e1e5eb;"></i>
+                        <h3>Historial de Préstamos</h3>
+                        <p>Aquí se mostrará el historial completo de préstamos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        let allLoans = [];
+        let activeLoans = [];
+        
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Cargar navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            // Cargar préstamos
+            loadAllLoans();
+        });
+        
+        async function loadAllLoans() {
+            try {
+                const loans = await apiRequest('/loans');
+                if (!loans || !Array.isArray(loans)) {
+                    throw new Error('No se pudieron cargar los préstamos');
+                }
+                
+                allLoans = loans;
+                activeLoans = loans.filter(loan => !loan.returned);
+                
+                displayActiveLoans();
+                displayAllLoans();
+                
+                showMessage(`Cargados ${loans.length} préstamos`, 'success');
+                
+            } catch (error) {
+                console.error('Error cargando préstamos:', error);
+                showMessage('Error cargando préstamos', 'error');
+            }
+        }
+        
+        async function loadLoans() {
+            const activeContainer = document.getElementById('active-loans');
+            const allContainer = document.getElementById('all-loans');
+            
+            activeContainer.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Cargando...</p></div>';
+            allContainer.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Cargando...</p></div>';
+            
+            await loadAllLoans();
+        }
+        
+        function displayActiveLoans() {
+            const container = document.getElementById('active-loans');
+            
+            if (!activeLoans || activeLoans.length === 0) {
+                container.innerHTML = `
+                    <div class="no-loans">
+                        <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 15px; color: var(--success);"></i>
+                        <h3>No hay préstamos activos</h3>
+                        <p>Todos los libros están disponibles en la biblioteca</p>
+                        <a href="books.html" class="btn btn-primary" style="margin-top: 20px;">
+                            <i class="fas fa-book"></i> Ver Libros Disponibles
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            activeLoans.forEach(loan => {
+                html += createLoanCard(loan);
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayAllLoans() {
+            const container = document.getElementById('all-loans');
+            
+            if (!allLoans || allLoans.length === 0) {
+                container.innerHTML = `
+                    <div class="no-loans">
+                        <i class="fas fa-history" style="font-size: 48px; margin-bottom: 15px; color: #e1e5eb;"></i>
+                        <h3>No hay préstamos registrados</h3>
+                        <p>Aún no se han realizado préstamos en el sistema</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            allLoans.forEach(loan => {
+                html += createLoanCard(loan);
+            });
+            
+            container.innerHTML = html;
+        }
+        
+function createLoanCard(loan) {
+    const loanDate = loan.loan_date ? new Date(loan.loan_date).toLocaleDateString() : 'N/A';
+    const returnDate = loan.return_date ? new Date(loan.return_date).toLocaleDateString() : 'No devuelto';
+    const isReturned = loan.returned === true;
+    
+    // Intentar obtener título del libro si está en la respuesta
+    let bookTitle = loan.book_id ? loan.book_id.substring(0, 8) + '...' : 'N/A';
+    let bookAuthor = '';
+    
+    if (loan.book && loan.book.title) {
+        bookTitle = loan.book.title;
+        bookAuthor = loan.book.author || '';
+    }
+    
+    return `
+        <div class="loan-card">
+            <div class="loan-header">
+                <div class="loan-id">
+                    <i class="fas fa-hashtag"></i> ${loan.id ? loan.id.substring(0, 12) + '...' : 'N/A'}
+                </div>
+                <div class="loan-status ${isReturned ? 'status-returned' : 'status-active'}">
+                    ${isReturned ? 'Devuelto' : 'Activo'}
+                </div>
+            </div>
+            
+            <div class="loan-details">
+                <div class="detail-item">
+                    <div class="detail-label">Usuario</div>
+                    <div class="detail-value">
+                        <i class="fas fa-user"></i> ${loan.user || 'Desconocido'}
+                    </div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">Libro</div>
+                    <div class="detail-value">
+                        <i class="fas fa-book"></i> <strong>${bookTitle}</strong>
+                        ${bookAuthor ? `<div style="font-size: 12px; color: #666;">${bookAuthor}</div>` : ''}
+                        ${loan.book_id ? `
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">Fecha Préstamo</div>
+                    <div class="detail-value">
+                        <i class="fas fa-calendar-plus"></i> ${loanDate}
+                    </div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">Fecha Devolución</div>
+                    <div class="detail-value">
+                        <i class="fas fa-calendar-check"></i> ${returnDate}
+                    </div>
+                </div>
+            </div>
+            
+            ${!isReturned ? `
+                <div style="text-align: right; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                    <button class="btn btn-success btn-small" onclick="returnLoan('${loan.id}')">
+                        <i class="fas fa-undo"></i> Registrar Devolución
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+        
+// Función para cargar detalles del libro
+async function loadBookDetails(bookId, button) {
+    if (!bookId) return;
+    
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    try {
+        const book = await apiRequest(`/books/${bookId}`);
+        if (book && book.title) {
+            // Actualizar el card con la información del libro
+            const bookElement = button.closest('.detail-item').querySelector('.detail-value');
+            bookElement.innerHTML = `
+                <i class="fas fa-book"></i> <strong>${book.title || 'Sin título'}</strong>
+                <div style="font-size: 12px; color: #666;">
+                    ${book.author || 'Autor desconocido'}
+                    ${book.genre ? ` | ${book.genre}` : ''}
+                    ${book.published ? ` | ${book.published}` : ''}
+                </div>
+                <div style="margin-top: 5px;">
+                    <a href="book-detail.html?id=${bookId}" class="btn btn-primary btn-small" style="padding: 3px 8px; font-size: 11px;">
+                        <i class="fas fa-external-link-alt"></i> Ver Detalles Completos
+                    </a>
+                </div>
+            `;
+            showMessage('Información del libro cargada', 'success');
+        }
+    } catch (error) {
+        showMessage('Error cargando libro: ' + error.message, 'error');
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+        function showTab(tabName) {
+            // Ocultar todas las pestañas
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remover active de todos los tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar pestaña seleccionada
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+            
+            // Si es la pestaña de historia y no está cargada, cargarla
+            if (tabName === 'history') {
+                loadHistory();
+            }
+        }
+        
+        async function loadHistory() {
+            // Por ahora, mostramos todos los préstamos devueltos
+            const historyContainer = document.getElementById('history-loans');
+            const returnedLoans = allLoans.filter(loan => loan.returned === true);
+            
+            if (returnedLoans.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="no-loans">
+                        <i class="fas fa-history" style="font-size: 48px; margin-bottom: 15px; color: #e1e5eb;"></i>
+                        <h3>No hay historial</h3>
+                        <p>No se han devuelto préstamos todavía</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            returnedLoans.forEach(loan => {
+                html += createLoanCard(loan);
+            });
+            
+            historyContainer.innerHTML = html;
+        }
+        
+        async function returnLoan(loanId) {
+            if (!confirm('¿Confirmar devolución de este préstamo?')) {
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`/loans/${loanId}/return`, {
+                    method: 'POST'
+                });
+                
+                if (!response) {
+                    throw new Error('Error devolviendo préstamo');
+                }
+                
+                showMessage('Préstamo devuelto exitosamente', 'success');
+                
+                // Recargar después de un momento
+                setTimeout(() => {
+                    loadAllLoans();
+                }, 1000);
+                
+            } catch (error) {
+                showMessage(error.message || 'Error devolviendo préstamo', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

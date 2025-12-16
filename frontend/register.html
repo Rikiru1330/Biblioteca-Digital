@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 Registro - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { padding: 20px; background: #f5f7fa; }
+        .card { max-width: 400px; margin: 50px auto; padding: 30px; }
+        .btn { margin-top: 20px; width: 100%; padding: 12px; }
+    </style>
+</head>
+<body>
+    <div class="card" style="background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+        <h2 style="text-align: center; margin-bottom: 25px;">
+            <i class="fas fa-user-plus" style="color: #6a11cb;"></i> Crear Cuenta
+        </h2>
+        
+        <!-- FORMULARIO SIMPLIFICADO -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Usuario *</label>
+            <input type="text" 
+                   id="reg-username" 
+                   style="width: 100%; padding: 12px; border: 2px solid #e1e5eb; border-radius: 8px;"
+                   placeholder="tu.usuario">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Contraseña *</label>
+            <input type="password" 
+                   id="reg-password" 
+                   style="width: 100%; padding: 12px; border: 2px solid #e1e5eb; border-radius: 8px;"
+                   placeholder="mínimo 6 caracteres">
+        </div>
+        
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Confirmar Contraseña *</label>
+            <input type="password" 
+                   id="reg-confirm" 
+                   style="width: 100%; padding: 12px; border: 2px solid #e1e5eb; border-radius: 8px;"
+                   placeholder="repite la contraseña">
+        </div>
+        
+        <button id="btn-register" 
+                style="background: linear-gradient(135deg, #6a11cb, #2575fc); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;">
+            <i class="fas fa-user-plus"></i> Crear Cuenta
+        </button>
+        
+        <div style="text-align: center; margin-top: 25px; color: #666;">
+            <a href="login.html" style="color: #6a11cb; text-decoration: none;">
+                <i class="fas fa-sign-in-alt"></i> Volver al Login
+            </a>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    
+    <script>
+        // Evitar error si ya está logueado
+        if (localStorage.getItem('library_token')) {
+            window.location.href = 'dashboard.html';
+        }
+        
+        // Función SEGURA que no falla
+        function handleRegister() {
+            console.log('=== INICIANDO REGISTRO ===');
+            
+            // Obtener elementos de forma SEGURA
+            const usernameElem = document.getElementById('reg-username');
+            const passwordElem = document.getElementById('reg-password');
+            const confirmElem = document.getElementById('reg-confirm');
+            
+            // Verificar que los elementos existen
+            if (!usernameElem || !passwordElem || !confirmElem) {
+                alert('Error: No se encontraron los campos del formulario');
+                console.error('Elementos no encontrados:', {
+                    username: !!usernameElem,
+                    password: !!passwordElem,
+                    confirm: !!confirmElem
+                });
+                return;
+            }
+            
+            // Obtener valores
+            const username = usernameElem.value.trim();
+            const password = passwordElem.value.trim();
+            const confirmPassword = confirmElem.value.trim();
+            
+            console.log('Valores capturados:', { username, password, confirmPassword });
+            
+            // Validaciones básicas
+            if (!username || !password || !confirmPassword) {
+                alert('Por favor, completa todos los campos');
+                return;
+            }
+            
+            if (password.length < 6) {
+                alert('La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                alert('Las contraseñas no coinciden');
+                return;
+            }
+            
+            // Deshabilitar botón
+            const button = document.getElementById('btn-register');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            button.disabled = true;
+            
+            // Enviar petición
+            fetch('http://localhost:8080/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => {
+                console.log('Status:', response.status);
+                return response.text().then(text => ({ status: response.status, text }));
+            })
+            .then(({ status, text }) => {
+                console.log('Respuesta completa:', text);
+                
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = { error: 'Respuesta no válida del servidor' };
+                }
+                
+                if (status >= 200 && status < 300) {
+                    // Éxito
+                    alert('¡Cuenta creada exitosamente! Serás redirigido al login.');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
+                } else {
+                    // Error
+                    alert('Error: ' + (data.error || data.message || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error en fetch:', error);
+                alert('Error de conexión: ' + error.message);
+            })
+            .finally(() => {
+                // Restaurar botón
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+        
+        // Asignar evento cuando la página cargue
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Página cargada, asignando eventos...');
+            
+            const btn = document.getElementById('btn-register');
+            if (btn) {
+                btn.addEventListener('click', handleRegister);
+                console.log('Evento asignado correctamente');
+            } else {
+                console.error('ERROR: Botón no encontrado');
+            }
+            
+            // También permitir Enter
+            document.getElementById('reg-confirm').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleRegister();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

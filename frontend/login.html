@@ -3,342 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 Login - Biblioteca Digital</title>
+    <title>🔐 Login - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
         .login-container {
-            width: 100%;
             max-width: 400px;
+            margin: 100px auto;
         }
         
         .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .logo i {
-            font-size: 50px;
-            color: #6a11cb;
-            margin-bottom: 15px;
-        }
-        
-        .logo h1 {
-            color: #333;
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-        
-        .logo p {
-            color: #666;
-            font-size: 16px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            color: #555;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        
-        .input-with-icon {
-            position: relative;
-        }
-        
-        .input-with-icon i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #888;
-        }
-        
-        .input-with-icon input {
-            width: 100%;
-            padding: 15px 15px 15px 45px;
-            border: 2px solid #e1e5eb;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s;
-            background: #f8f9fa;
-        }
-        
-        .input-with-icon input:focus {
-            outline: none;
-            border-color: #6a11cb;
             background: white;
-            box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.1);
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            text-align: center;
         }
         
-        .login-btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
+        .login-logo {
+            font-size: 50px;
+            color: var(--primary);
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
         }
         
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(106, 17, 203, 0.2);
+        .login-title {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: var(--dark);
         }
         
-        .login-btn:active {
-            transform: translateY(0);
-        }
-        
-        .login-btn i {
-            margin-right: 8px;
+        .login-subtitle {
+            color: var(--gray);
+            margin-bottom: 30px;
         }
         
         .demo-credentials {
             margin-top: 25px;
             padding: 15px;
             background: #e8f4ff;
-            border-radius: 10px;
-            border-left: 4px solid #2575fc;
+            border-radius: 8px;
+            border-left: 4px solid var(--info);
         }
         
-        .demo-credentials h3 {
-            color: #2575fc;
-            font-size: 16px;
-            margin-bottom: 8px;
+        .demo-title {
+            color: var(--info);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 5px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
         
-        .demo-credentials p {
-            color: #555;
-            font-size: 14px;
-            line-height: 1.5;
+        .demo-text {
+            font-size: 13px;
+            color: var(--gray);
         }
         
-        .demo-credentials code {
+        .demo-text code {
             background: white;
             padding: 2px 6px;
             border-radius: 4px;
             font-family: monospace;
-            color: #2575fc;
+            color: var(--info);
             font-weight: bold;
-        }
-        
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 14px;
-        }
-        
-        .footer a {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .footer a:hover {
-            text-decoration: underline;
-        }
-        
-        .error-message {
-            background: #ffeaea;
-            color: #e74c3c;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-            border-left: 4px solid #e74c3c;
-        }
-        
-        .error-message i {
-            margin-right: 8px;
-        }
-        
-        /* Animaciones */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .login-card {
-            animation: fadeIn 0.6s ease-out;
-        }
-        
-        /* Responsive */
-        @media (max-width: 480px) {
-            .login-card {
-                padding: 30px 20px;
-            }
-            
-            .logo h1 {
-                font-size: 24px;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="logo">
-                <i class="fas fa-book-open"></i>
-                <h1>Biblioteca Digital</h1>
-                <p>Sistema de gestión de libros</p>
-            </div>
-            
-            <div id="error-message" class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                <span id="error-text"></span>
-            </div>
-            
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="username"><i class="fas fa-user"></i> Usuario</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-user-circle"></i>
-                        <input type="text" id="username" placeholder="Ingresa tu usuario" value="admin" required>
-                    </div>
+    <div class="container">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-logo">
+                    <i class="fas fa-book-open"></i>
                 </div>
                 
-                <div class="form-group">
-                    <label for="password"><i class="fas fa-lock"></i> Contraseña</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-key"></i>
-                        <input type="password" id="password" placeholder="Ingresa tu contraseña" value="admin123" required>
+                <h1 class="login-title">Biblioteca Digital</h1>
+                <p class="login-subtitle">Sistema de gestión de libros</p>
+                
+                <form id="login-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-user"></i> Usuario
+                        </label>
+                        <input type="text" 
+                               id="username" 
+                               class="form-control" 
+                               placeholder="Ingresa tu usuario"
+                               value="admin"
+                               required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock"></i> Contraseña
+                        </label>
+                        <input type="password" 
+                               id="password" 
+                               class="form-control" 
+                               placeholder="Ingresa tu contraseña"
+                               value="admin123"
+                               required>
+                    </div>
+                    
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            style="width: 100%; padding: 15px;"
+                            onclick="handleLogin()">
+                        <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                    </button>
+                </form>
+                
+<div class="form-footer" style="text-align: center; margin-top: 20px;">
+    <p>¿No tienes cuenta? <a href="register.html" style="color: var(--primary);">Regístrate aquí</a></p>
+</div>
+
+                <div class="demo-credentials">
+                    <div class="demo-title">
+                        <i class="fas fa-info-circle"></i> Credenciales de demostración
+                    </div>
+                    <div class="demo-text">
+                        Usuario: <code>admin</code> | Contraseña: <code>admin123</code>
                     </div>
                 </div>
-                
-                <button type="button" class="login-btn" onclick="login()">
-                    <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
-                </button>
-            </form>
-            
-            <div class="demo-credentials">
-                <h3><i class="fas fa-info-circle"></i> Credenciales de demostración</h3>
-                <p>Usuario: <code>admin</code> | Contraseña: <code>admin123</code></p>
-                <p style="margin-top: 5px; font-size: 13px;">Puedes crear más usuarios desde la API</p>
             </div>
-        </div>
-        
-        <div class="footer">
-            <p>© 2024 Biblioteca Digital | <a href="http://localhost:8080" target="_blank">API Documentation</a></p>
+            
+            <div style="text-align: center; margin-top: 30px; color: var(--gray); font-size: 14px;">
+                <p>© 2024 Biblioteca Digital | <a href="http://localhost:8080" target="_blank" style="color: var(--primary);">API Docs</a></p>
+            </div>
         </div>
     </div>
 
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    
     <script>
-        const API_BASE_URL = 'http://localhost:8080';
+        // Si ya está autenticado, redirigir
+        if (isAuthenticated()) {
+            window.location.href = 'dashboard.html';
+        }
         
-        async function login() {
+        async function handleLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
-            const errorEl = document.getElementById('error-message');
-            const errorText = document.getElementById('error-text');
             
-            // Validación
             if (!username || !password) {
-                showError('Por favor, completa todos los campos');
+                showMessage('Por favor, completa todos los campos', 'error');
                 return;
             }
             
-            // Mostrar loading
-            const btn = document.querySelector('.login-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando sesión...';
-            btn.disabled = true;
+            const button = document.querySelector('button[onclick="handleLogin()"]');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando...';
+            button.disabled = true;
             
-            try {
-                const response = await fetch(`${API_BASE_URL}/login`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || 'Credenciales incorrectas');
-                }
-                
-                // Guardar token y usuario
-                localStorage.setItem('library_token', data.token || '');
-                localStorage.setItem('library_user', JSON.stringify(data.user || { username, role: 'user' }));
-                
-                // Redirigir a la aplicación
-                window.location.href = 'index.html';
-                
-            } catch (error) {
-                showError(error.message || 'Error de conexión con el servidor');
-                console.error('Login error:', error);
-            } finally {
-                // Restaurar botón
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-        
-        function showError(message) {
-            const errorEl = document.getElementById('error-message');
-            const errorText = document.getElementById('error-text');
+            await login(username, password);
             
-            errorText.textContent = message;
-            errorEl.style.display = 'block';
-            
-            // Ocultar después de 5 segundos
-            setTimeout(() => {
-                errorEl.style.display = 'none';
-            }, 5000);
+            button.innerHTML = originalText;
+            button.disabled = false;
         }
         
         // Permitir login con Enter
         document.getElementById('password').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                login();
-            }
-        });
-        
-        // Verificar si ya está logueado
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = localStorage.getItem('library_token');
-            if (token) {
-                // Ya está logueado, redirigir
-                window.location.href = 'index.html';
+                handleLogin();
             }
         });
     </script>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📖 Detalle - Biblioteca Digital</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .book-detail-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+        
+        .book-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+        }
+        
+        .book-title-section h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+        
+        .book-author {
+            font-size: 18px;
+            color: var(--gray);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .book-status-badge {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .book-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .meta-item {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .meta-label {
+            font-size: 12px;
+            color: var(--gray);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .meta-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .book-description-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            line-height: 1.6;
+        }
+        
+        .book-actions-section {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Navigation se carga con JavaScript -->
+        
+        <div class="main-content">
+            <a href="books.html" class="back-link">
+                <i class="fas fa-arrow-left"></i> Volver a Libros
+            </a>
+            
+            <div id="book-detail-container">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Cargando información del libro...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        // Obtener ID del libro de la URL
+        function getBookIdFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+        
+        // Proteger la página
+        if (!protectPage()) {
+            // Redirigirá automáticamente
+        }
+        
+        // Cargar navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('app').innerHTML = loadNavigation() + document.getElementById('app').innerHTML;
+            
+            // Cargar detalle del libro
+            loadBookDetail();
+        });
+        
+        async function loadBookDetail() {
+            const bookId = getBookIdFromURL();
+            const container = document.getElementById('book-detail-container');
+            
+            if (!bookId) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Libro no especificado</h3>
+                        <p>No se especificó un ID de libro válido</p>
+                        <a href="books.html" class="btn btn-primary" style="margin-top: 20px;">
+                            <i class="fas fa-book"></i> Ver Todos los Libros
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                // Cargar información del libro
+                const book = await apiRequest(`/books/${bookId}`);
+                if (!book || book.error) {
+                    throw new Error(book?.error || 'Libro no encontrado');
+                }
+                
+                displayBookDetail(book);
+                
+            } catch (error) {
+                console.error('Error cargando detalle:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Error cargando libro</h3>
+                        <p>${error.message}</p>
+                        <a href="books.html" class="btn btn-primary" style="margin-top: 20px;">
+                            <i class="fas fa-book"></i> Volver a Libros
+                        </a>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayBookDetail(book) {
+            const container = document.getElementById('book-detail-container');
+            const user = getUserInfo();
+            const isAdmin = user && user.isAdmin;
+            
+            const title = book.title || 'Sin título';
+            const author = book.author || 'Autor desconocido';
+            const isbn = book.isbn || 'No disponible';
+            const published = book.published || 'No disponible';
+            const genre = book.genre || 'No especificado';
+            const description = book.description || 'No hay descripción disponible para este libro.';
+            const available = book.available !== false;
+            
+            const statusColor = available ? 'var(--success)' : 'var(--danger)';
+            const statusText = available ? 'Disponible' : 'Prestado';
+            const statusBg = available ? 'rgba(0, 184, 148, 0.1)' : 'rgba(225, 112, 85, 0.1)';
+            
+            const html = `
+                <div class="book-detail-card">
+                    <div class="book-header">
+                        <div class="book-title-section">
+                            <h1>${title}</h1>
+                            <div class="book-author">
+                                <i class="fas fa-user-edit"></i> ${author}
+                            </div>
+                            <div style="margin-top: 10px; color: var(--gray); font-size: 14px;">
+                                <i class="fas fa-fingerprint"></i> ID: ${book.id || 'N/A'}
+                            </div>
+                        </div>
+                        
+                        <div class="book-status-badge" style="background: ${statusBg}; color: ${statusColor};">
+                            ${statusText}
+                        </div>
+                    </div>
+                    
+                    <div class="book-meta-grid">
+                        <div class="meta-item">
+                            <div class="meta-label">ISBN</div>
+                            <div class="meta-value">${isbn}</div>
+                        </div>
+                        
+                        <div class="meta-item">
+                            <div class="meta-label">Año de Publicación</div>
+                            <div class="meta-value">${published}</div>
+                        </div>
+                        
+                        <div class="meta-item">
+                            <div class="meta-label">Género</div>
+                            <div class="meta-value">${genre}</div>
+                        </div>
+                        
+                        <div class="meta-item">
+                            <div class="meta-label">Estado</div>
+                            <div class="meta-value" style="color: ${statusColor};">${statusText}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="book-description-section">
+                        <h3 style="margin-bottom: 15px; color: var(--dark);">
+                            <i class="fas fa-align-left"></i> Descripción
+                        </h3>
+                        <p>${description}</p>
+                    </div>
+                    
+                    <div class="book-actions-section">
+                        ${available ? 
+                            `<button class="btn btn-success" onclick="borrowBook('${book.id}', '${title.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-book-reader"></i> Prestar este Libro
+                            </button>` : 
+                            `<a href="loans.html" class="btn btn-info">
+                                <i class="fas fa-exchange-alt"></i> Ver Préstamo
+                            </a>`
+                        }
+                        
+                        ${isAdmin ? `
+                            <button class="btn btn-warning" onclick="editBook('${book.id}')">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteBook('${book.id}', '${title.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: var(--gray); font-size: 14px;">
+                    <i class="fas fa-info-circle"></i> 
+                    Creado: ${book.created_at ? new Date(book.created_at).toLocaleDateString() : 'N/A'} | 
+                    Actualizado: ${book.updated_at ? new Date(book.updated_at).toLocaleDateString() : 'N/A'}
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        async function borrowBook(bookId, bookTitle) {
+            const user = getUserInfo();
+            const borrower = prompt(`¿Quién presta el libro "${bookTitle}"?`, user?.name || '');
+            
+            if (!borrower) return;
+            
+            try {
+                const response = await apiRequest(`/books/${bookId}/borrow`, {
+                    method: 'POST',
+                    body: JSON.stringify({ book_id: bookId, user: borrower })
+                });
+                
+                if (!response) {
+                    throw new Error('Error en la solicitud');
+                }
+                
+                showMessage(`Libro "${bookTitle}" prestado a ${borrower}`, 'success');
+                
+                // Recargar después de un momento
+                setTimeout(() => {
+                    loadBookDetail();
+                }, 1500);
+                
+            } catch (error) {
+                showMessage(error.message || 'Error prestando libro', 'error');
+            }
+        }
+        
+        async function editBook(bookId) {
+            if (confirm('¿Deseas editar este libro?')) {
+                // Redirigir a página de edición (podrías crear edit-book.html)
+                // Por ahora, redirigimos a books
+                window.location.href = `books.html`;
+            }
+        }
+        
+        async function deleteBook(bookId, bookTitle) {
+            if (!confirm(`¿Estás seguro de eliminar el libro "${bookTitle}"? Esta acción no se puede deshacer.`)) {
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`/books/${bookId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response) {
+                    throw new Error('Error eliminando libro');
+                }
+                
+                showMessage(`Libro "${bookTitle}" eliminado correctamente`, 'success');
+                
+                // Redirigir a lista de libros después de un momento
+                setTimeout(() => {
+                    window.location.href = 'books.html';
+                }, 1500);
+                
+            } catch (error) {
+                showMessage(error.message || 'Error eliminando libro', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
